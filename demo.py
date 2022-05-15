@@ -22,10 +22,10 @@ if __name__ == "__main__":
         output = " ".join(file_words)
         all_reuters_words.append([file_id, output])
     df_reuters = pd.DataFrame(all_reuters_words, columns=["ids", "text"])
-    df_reuters = df_reuters[:500]
+    df_reuters = df_reuters[:2500]
     df_reuters["title"] = df_reuters["text"].apply(extract_title)
 
-    bm25 = BM25(df_reuters, 1.25, 0.75, 1, rf_docs=5)
+    bm25 = BM25(df_reuters, 1.25, 0.75, 1, rf_docs=15)
 
     while True:
         os.system('clear')

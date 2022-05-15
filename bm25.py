@@ -13,7 +13,7 @@ class BM25(object):
     Class to implement bm25 ranking algorithm, given a corpus of documents.
     """
 
-    def __init__(self, corpus: pd.DataFrame, k: float, b: float, delta: float, rf_docs=None, rf_terms=25) -> None:
+    def __init__(self, corpus: pd.DataFrame, k: float, b: float, delta: float, rf_docs=None, rf_terms=10) -> None:
         """
         bm25 class initializer.
 
