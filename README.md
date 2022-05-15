@@ -1,6 +1,6 @@
 # BM25 with pseudo-relevance feedback
 
-This repository contains the code for my final project of "Information Retrieval", that I did in the course of my master's degree.
+This repository contains the code for my final project of "Information Retrieval".
 
 ## Installation
 
