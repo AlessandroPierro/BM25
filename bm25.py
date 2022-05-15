@@ -3,6 +3,7 @@ import math
 import pandas as pd
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
+from collections.abc import Set
 
 STOP_WORDS = set(stopwords.words('english'))
 
@@ -40,7 +41,7 @@ class BM25(object):
         self.corpus.drop(columns=["parsed_text", "text"], inplace=True)
 
     @staticmethod
-    def build_vocabulary(df: pd.DataFrame) -> set:
+    def build_vocabulary(df: pd.DataFrame) -> Set[str]:
         """
         Given a Pandas DataFrame with a column "parsed_text", returns a set of all unique words in the corpus.
 
@@ -81,7 +82,7 @@ class BM25(object):
         return term_frequency.fillna(0)
 
     @staticmethod
-    def compute_idf(tf: pd.DataFrame, vocabulary: set, n_docs: int) -> pd.DataFrame:
+    def compute_idf(tf: pd.DataFrame, vocabulary: Set[str], n_docs: int) -> pd.DataFrame:
         """
         Given a Pandas DataFrame with a column for each unique word in the corpus, containing the number of times
         that word appears in the document, and a set of unique words in the corpus, returns a DataFrame with a row
@@ -99,7 +100,7 @@ class BM25(object):
         return idf
 
     @staticmethod
-    def preprocess_text(text: str) -> str:
+    def preprocess_text(text: Set[str]) -> str:
         """
         Preprocess each string by:
         1. Lowercasing the string
@@ -115,7 +116,7 @@ class BM25(object):
                         if word not in STOP_WORDS])
         return text
 
-    def score_document(self, corpus_row, query_terms: set) -> float:
+    def score_document(self, corpus_row: pd.DataFrame, query_terms: Set[str]) -> float:
         score = 0
         for term in query_terms:
             if term in self.vocabulary:
@@ -123,7 +124,7 @@ class BM25(object):
                 score += temp
         return round(score, 4)
 
-    def score_term(self, corpus_row, term: str) -> float:
+    def score_term(self, corpus_row: pd.DataFrame, term: str) -> float:
         """
         Given a corpus row and a term, returns the BM25 score for that term.
 
@@ -151,8 +152,9 @@ class BM25(object):
         results = results.sort_values(by="score", ascending=False)
         if self.rf_docs:
             rf_tf = self.tf.loc[results[:min(self.rf_docs, len(results))]["ids"], :].sum(
-                        ).transpose().sort_values(ascending=False)[:self.rf_terms]
-            query_terms = query_terms.union(set(rf_tf.loc[rf_tf > 0].index.to_list()))
+            ).transpose().sort_values(ascending=False)[:self.rf_terms]
+            query_terms = query_terms.union(
+                set(rf_tf.loc[rf_tf > 0].index.to_list()))
             results = self.corpus.copy().drop(columns="word_count")
             results["score"] = self.corpus.apply(
                 lambda row: self.score_document(row, query_terms), axis=1)
