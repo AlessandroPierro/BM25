@@ -73,12 +73,10 @@ class BM25(object):
         """
         term_frequency = pd.DataFrame(
             index=self.corpus["ids"], columns=self.vocabulary)
-        for idx, row in self.corpus.iterrows():
+        for _, row in self.corpus.iterrows():
             tmp = row["parsed_text"].split(" ")
             for term in set(tmp) - {""}:
                 term_frequency.loc[row["ids"], term] = tmp.count(term)
-        # for word in self.vocabulary:
-        #    term_frequency[word] = self.corpus["parsed_text"].apply(lambda text: text.split(" ").count(word)).to_list()
         return term_frequency.fillna(0)
 
     @staticmethod
@@ -100,7 +98,7 @@ class BM25(object):
         return idf
 
     @staticmethod
-    def preprocess_text(text: Set[str]) -> str:
+    def preprocess_text(text: str) -> str:
         """
         Preprocess each string by:
         1. Lowercasing the string
@@ -139,7 +137,7 @@ class BM25(object):
         term_idf = self.idf.loc[term, "idf"]
         return (self.k + 1) * tf * term_idf / ((self.k + tf) * (1 - self.b + self.b * corpus_row["word_count"] / self.avg_word_count))
 
-    def query(self, query: str, max_results: int) -> pd.DataFrame:
+    def query(self, query: str, max_results: int, expand=False) -> pd.DataFrame:
         """
 
         """
@@ -150,15 +148,11 @@ class BM25(object):
             lambda row: self.score_document(row, query_terms), axis=1)
         results = results[results["score"] > 0]
         results = results.sort_values(by="score", ascending=False)
-        if self.rf_docs:
+        if expand:
             rf_tf = self.tf.loc[results[:min(self.rf_docs, len(results))]["ids"], :].sum(
             ).transpose().sort_values(ascending=False)[:self.rf_terms]
             query_terms = query_terms.union(
                 set(rf_tf.loc[rf_tf > 0].index.to_list()))
-            results = self.corpus.copy().drop(columns="word_count")
-            results["score"] = self.corpus.apply(
-                lambda row: self.score_document(row, query_terms), axis=1)
-            results = results[results["score"] > 0]
-            results = results.sort_values(by="score", ascending=False)
+            return self.query(" ".join(query_terms), max_results, expand=False)
         results = results[:min(max_results, len(results))]
         return results

@@ -1,4 +1,5 @@
 import os
+from numpy import exp2
 import pandas as pd
 from nltk import corpus
 from bm25 import BM25
@@ -30,6 +31,6 @@ if __name__ == "__main__":
     while True:
         os.system('clear')
         query = input("Enter a plain-text query: ")
-        results = bm25.query(query, 45)
+        results = bm25.query(query, 45, expand=True)
         print(tabulate(results, headers=["ids", "title", "score"]))
         input("Press Enter to continue...")
