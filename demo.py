@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import pandas as pd
+from pickle import load, dump
 from nltk import corpus
 from bm25 import BM25
 from tabulate import tabulate
@@ -25,6 +26,10 @@ def get_args():
                         help='Number of documents to return')
     parser.add_argument('--expand', type=bool, default=False,
                         help='Expand the query with pseudo-relevance feedback')
+    parser.add_argument('--load', type=str, default=None,
+                        help='Path to a pickle file containing a previously-saved BM25 object')
+    parser.add_argument('--dump', type=str, default=None,
+                        help='Path to a pickle file to save the BM25 object')
     args = parser.parse_args()
     return args
 
@@ -41,17 +46,23 @@ if __name__ == "__main__":
     args = get_args()
 
     # Load the corpus
-    file_ids = corpus.reuters.fileids()
-    data = []
-    for i in range(min(args.ndocs, len(file_ids))):
-        words = corpus.reuters.words(file_ids[i])
-        text = " ".join(words)
-        title = extract_title(text)
-        data.append([file_ids[i], title, text])
-    df = pd.DataFrame(data, columns=['id', 'title', 'text'])
-
-    # Create a BM25 index
-    bm25 = BM25(df, args.k1, args.b, args.delta, args.rf_docs, args.rf_terms)
+    if args.load is None:
+        file_ids = corpus.reuters.fileids()
+        data = []
+        for i in range(min(args.ndocs, len(file_ids))):
+            words = corpus.reuters.words(file_ids[i])
+            text = " ".join(words)
+            title = extract_title(text)
+            data.append([file_ids[i], title, text])
+        df = pd.DataFrame(data, columns=['id', 'title', 'text'])
+        bm25 = BM25(df, args.k1, args.b, args.delta,
+                    args.rf_docs, args.rf_terms)
+        if args.dump is not None:
+            with open(args.dump, 'wb') as f:
+                dump(bm25, f)
+    else:
+        with open(args.load, 'rb') as f:
+            bm25 = load(f)
 
     # Perform queries
     while True:
@@ -62,6 +73,6 @@ if __name__ == "__main__":
         end = time.time()
         print("\nQuery time: %.2f seconds\n" % (end - start))
         print(tabulate(results, headers=[
-              "id", "title", "score"], showindex=False))
+            "id", "title", "score"], showindex=False))
         if input("\nPress enter to continue or q to quit: ") == "q":
             break
