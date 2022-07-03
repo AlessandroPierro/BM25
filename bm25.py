@@ -109,6 +109,11 @@ class BM25(object):
         2. Removing punctuation and other non-alphanumeric characters
         3. Lemmatizing the string using WordNet's lemmatizer
         4. Removing stopwords (assumed to be English)
+
+        params:
+            text (str): string to preprocess
+        returns:
+            text (str): preprocessed string
         """
         text = text.lower()
         text = re.sub(r"[^a-z0-9 ]", "", text)
@@ -138,10 +143,35 @@ class BM25(object):
         return ((self.k1 + 1) * tf + self.delta) * term_idf / (
             (self.k1 + tf) * (1 - self.b + self.b * corpus_row["word_count"] / self._avg_word_count))
 
+    def _compute_offer_weights(self, results: pd.DataFrame) -> pd.DataFrame:
+        """
+        Compute the offer weights for each document in the results DataFrame to power the pseudo-relevance feedback.
+
+        params:
+            results (pd.DataFrame): DataFrame with a column "id" and a column "score" with the initial results.
+        returns:
+            offer_weights (pd.Series): Series with the offer weights for each term.
+        """
+        offer_weights = self._tf.loc[results['id'], :].astype(bool).sum(axis=0)
+        for idx, value in offer_weights.iteritems():
+            offer_weights[idx] = value * self._idf.loc[idx, "idf"]
+        offer_weights = offer_weights.sort_values(ascending=False)
+        return offer_weights
+
     @lru_cache
     def query(self, query: str, max_results: int, expand=False) -> pd.DataFrame:
         """
+        Given a query string, return a dataframe with the top max_results results.
 
+        Implements a BM25+ variant, where the pseudo-relevance feedback is implemented
+        using the top rf_docs documents and the top rf_terms terms, based on the tf scores.
+
+        params:
+            query (str): query string
+            max_results (int): maximum number of results to return
+            expand (bool): if True, return the expanded results, otherwise return the original results
+        returns:
+            results (pd.DataFrame): dataframe with the top max_results results
         """
         query = self._preprocess_text(query)
         query_terms = set(query.split(" "))
@@ -151,10 +181,12 @@ class BM25(object):
         results = results[results["score"] > 0]
         results = results.sort_values(by="score", ascending=False)
         if expand:
-            rf_tf = self._tf.loc[results[:min(self.rf_docs, len(results))]["id"], :].sum().transpose().sort_values(
-                ascending=False)[:self.rf_terms]
-            query_terms = query_terms.union(
-                set(rf_tf.loc[rf_tf > 0].index.to_list()))
-            return self.query(" ".join(query_terms), max_results, expand=False)
+            results = results[:min(max_results, len(results))]
+            offer_weights = self._compute_offer_weights(results)
+            additional_terms = set(offer_weights.index[:self.rf_terms].to_list())
+            query_terms = query_terms.union(additional_terms)
+            new_query = " ".join(query_terms)
+            print(f"Expanded query: {new_query}")
+            return self.query(new_query, max_results, expand=False)
         results = results[:min(max_results, len(results))]
         return results
