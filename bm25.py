@@ -126,6 +126,14 @@ class BM25(object):
     def _score_document(self, corpus_row: pd.DataFrame, query_terms: Set[str]) -> float:
         """
         Compute the BM25 score for a document, given a set of query terms.
+
+        score(d,q) = sum_{t \in q} w_t
+
+        params:
+            corpus_row (pd.DataFrame): Pandas DataFrame row containing the document to score
+            query_terms (Set[str]): set of query terms
+        returns:
+            score (float): BM25 score for the document
         """
         score = 0
         for term in query_terms:
@@ -137,6 +145,9 @@ class BM25(object):
     def _score_term(self, corpus_row: pd.DataFrame, term: str) -> float:
         """
         Given a corpus row and a term, returns the BM25 score for that term.
+
+        w_t = ((k1 + 1) * tf_t + delta) * idf_t / ((k1 + tf_t) * (1 - b + b * doc_lenght / avg_doc_lenght))
+
         """
         tf = self._tf.loc[corpus_row["id"], term]
         term_idf = self._idf.loc[term, "idf"]
@@ -145,7 +156,9 @@ class BM25(object):
 
     def _compute_offer_weights(self, results: pd.DataFrame) -> pd.DataFrame:
         """
-        Compute the offer weights for each document in the results DataFrame to power the pseudo-relevance feedback.
+        Compute the offer weights from the document in the results DataFrame to power the pseudo-relevance feedback.
+
+        OW_t = #documents containing term t * idf_t
 
         params:
             results (pd.DataFrame): DataFrame with a column "id" and a column "score" with the initial results.
@@ -163,8 +176,8 @@ class BM25(object):
         """
         Given a query string, return a dataframe with the top max_results results.
 
-        Implements a BM25+ variant, where the pseudo-relevance feedback is implemented
-        using the top rf_docs documents and the top rf_terms terms, based on the tf scores.
+        The results are ranked by the BM25 score. If expand is True, the results are expanded to include the
+        terms in the original results with the highest Offer Weight, computed with _compute_offer_weights.
 
         params:
             query (str): query string
@@ -180,13 +193,13 @@ class BM25(object):
             lambda row: self._score_document(row, query_terms), axis=1)
         results = results[results["score"] > 0]
         results = results.sort_values(by="score", ascending=False)
+        results = results[:min(max_results, len(results))]
         if expand:
-            results = results[:min(max_results, len(results))]
             offer_weights = self._compute_offer_weights(results)
-            additional_terms = set(offer_weights.index[:self.rf_terms].to_list())
+            additional_terms = set(
+                offer_weights.index[:self.rf_terms].to_list())
             query_terms = query_terms.union(additional_terms)
             new_query = " ".join(query_terms)
             print(f"Expanded query: {new_query}")
             return self.query(new_query, max_results, expand=False)
-        results = results[:min(max_results, len(results))]
         return results

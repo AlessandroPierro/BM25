@@ -9,11 +9,12 @@ from tabulate import tabulate
 
 pd.options.plotting.backend = "plotly"
 
+
 def get_args():
     parser = argparse.ArgumentParser(description='Information Retrieval system based on BM25.\n'
-                                                    'This program is a demo of the BM25 algorithm.')
+                                     'This program is a demo of the BM25 algorithm.')
     parser.add_argument('--ndocs', type=int, default=2500,
-                        help='Number of documents to load from the corpus')
+                        help='Maximum number of documents to load from the corpus')
     parser.add_argument('--k1', type=float, default=1.2,
                         help='Coefficient in the BM25 formula')
     parser.add_argument('--b', type=float, default=0.75,
@@ -78,7 +79,7 @@ if __name__ == "__main__":
         end = time.time()
         print("\nQuery time: %.2f seconds\n" % (end - start))
         print(tabulate(results, headers=[
-            "id", "title", "score"], showindex=False))
+              "id", "title", "score"], showindex=False))
         if args.plot:
             results.drop(['id', 'title'], axis=1, inplace=True)
             results.index = list(range(len(results)))
